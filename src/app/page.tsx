@@ -1,113 +1,186 @@
-import Image from "next/image";
+"use client";
+import React, { useState, useRef, useEffect } from 'react';
+import { FaRobot, FaUser, FaCog, FaFolder } from 'react-icons/fa';
+
+interface Message {
+  sender: 'AI' | 'User' | 'System';
+  content: string;
+}
+
+const API_BASE_URL = 'http://localhost:8000';
 
 export default function Home() {
+  const [directory, setDirectory] = useState<string>('');
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [input, setInput] = useState<string>('');
+  const [consoleOutput, setConsoleOutput] = useState<string[]>([]);
+  const [botActions, setBotActions] = useState<string[]>([]);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const consoleEndRef = useRef<HTMLDivElement>(null);
+  const botActionsEndRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const consoleSource = new EventSource(`${API_BASE_URL}/api/console_stream`);
+    const botActionSource = new EventSource(`${API_BASE_URL}/api/bot_action_stream`);
+
+    consoleSource.onmessage = (event) => {
+      setConsoleOutput((prev) => [...prev, event.data]);
+    };
+
+    botActionSource.onmessage = (event) => {
+      setBotActions((prev) => [...prev, event.data]);
+    };
+
+    return () => {
+      consoleSource.close();
+      botActionSource.close();
+    };
+  }, []);
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    consoleEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    botActionsEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages, consoleOutput, botActions]);
+
+  const selectDirectory = async () => {
+    if (!directory.trim()) {
+      setMessages([...messages, { sender: 'System', content: 'Please enter a directory path.' }]);
+      return;
+    }
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/select_directory`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ path: directory }),
+      });
+      const result = await response.json();
+      
+      if (response.ok) {
+        setMessages([{ sender: 'System', content: `Directory selected: ${directory}` }]);
+        setConsoleOutput([]);
+        setBotActions([]);
+      } else {
+        setMessages([{ sender: 'System', content: `Error: ${response.status} - ${result.detail || 'Unknown error'}` }]);
+      }
+    } catch (error : any) {
+      console.error('Error selecting directory:', error);
+      setMessages([{ sender: 'System', content: `Error selecting directory: ${error.message}` }]);
+    }
+  };
+
+  const sendMessage = async () => {
+    if (!input.trim()) return;
+
+    setMessages([...messages, { sender: 'User', content: input }]);
+    setInput('');
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/send_message`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ content: input }),
+      });
+      const result = await response.json();
+
+      if (result.ai_actions) {
+        setMessages(prev => [...prev, { sender: 'System', content: result.ai_actions }]);
+      }
+      setMessages(prev => [...prev, { sender: 'AI', content: result.ai_response }]);
+    } catch (error : any) {
+      console.error('Error sending message:', error);
+      setMessages(prev => [...prev, { sender: 'System', content: `Error sending message: ${error.message}` }]);
+    }
+  };
+
   return (
-    <main className="flex min-h-screen flex-col items-center justify-between p-24">
-      <div className="z-10 w-full max-w-5xl items-center justify-between font-mono text-sm lg:flex">
-        <p className="fixed left-0 top-0 flex w-full justify-center border-b border-gray-300 bg-gradient-to-b from-zinc-200 pb-6 pt-8 backdrop-blur-2xl dark:border-neutral-800 dark:bg-zinc-800/30 dark:from-inherit lg:static lg:w-auto  lg:rounded-xl lg:border lg:bg-gray-200 lg:p-4 lg:dark:bg-zinc-800/30">
-          Get started by editing&nbsp;
-          <code className="font-mono font-bold">src/app/page.tsx</code>
-        </p>
-        <div className="fixed bottom-0 left-0 flex h-48 w-full items-end justify-center bg-gradient-to-t from-white via-white dark:from-black dark:via-black lg:static lg:size-auto lg:bg-none">
-          <a
-            className="pointer-events-none flex place-items-center gap-2 p-8 lg:pointer-events-auto lg:p-0"
-            href="https://vercel.com?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            By{" "}
-            <Image
-              src="/vercel.svg"
-              alt="Vercel Logo"
-              className="dark:invert"
-              width={100}
-              height={24}
-              priority
+    <div className="flex flex-col h-screen bg-gray-100">
+      <header className="bg-blue-600 p-4">
+        <h1 className="text-2xl font-bold text-white">AI Assistant</h1>
+      </header>
+
+      <div className="flex-grow flex p-4 space-x-4 overflow-hidden">
+        <div className="flex-grow flex flex-col space-y-4 max-w-2xl">
+          <div className="flex space-x-2">
+            <input
+              type="text"
+              value={directory}
+              onChange={(e) => setDirectory(e.target.value)}
+              placeholder="Paste your directory path here"
+              className="flex-grow p-2 border rounded text-black"
             />
-          </a>
+            <button
+              onClick={selectDirectory}
+              className="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600 transition-colors flex items-center"
+            >
+              <FaFolder className="mr-2" />
+              Set Directory
+            </button>
+          </div>
+
+          <div className="flex-grow flex flex-col">
+            <div className="flex-grow bg-white rounded-lg shadow-md p-4 overflow-y-auto max-h-[calc(100vh-250px)]">
+              {messages.map((message, index) => (
+                <div key={index} className={`mb-4 ${message.sender === 'User' ? 'flex justify-end' : 'flex justify-start'}`}>
+                  <div className={`max-w-[70%] p-3 rounded-lg ${
+                    message.sender === 'AI' ? 'bg-blue-100' :
+                    message.sender === 'User' ? 'bg-green-100' :
+                    'bg-gray-100'
+                  }`}>
+                    <div className="flex items-center space-x-2 mb-1">
+                      {message.sender === 'AI' && <FaRobot className="text-blue-500" />}
+                      {message.sender === 'User' && <FaUser className="text-green-500" />}
+                      {message.sender === 'System' && <FaCog className="text-gray-500" />}
+                      <span className="font-bold text-black">{message.sender}:</span>
+                    </div>
+                    <p className="text-black whitespace-pre-wrap">{message.content}</p>
+                  </div>
+                </div>
+              ))}
+              <div ref={messagesEndRef} />
+            </div>
+          </div>
+
+          <div className="flex space-x-2">
+            <input
+              type="text"
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyPress={(e) => e.key === 'Enter' && sendMessage()}
+              placeholder="Type your message..."
+              className="flex-grow p-2 border rounded text-black"
+            />
+            <button
+              onClick={sendMessage}
+              className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 transition-colors"
+            >
+              Send
+            </button>
+          </div>
+        </div>
+
+        <div className="w-1/3 flex flex-col space-y-4 overflow-hidden">
+          <div className="flex-grow bg-black text-green-400 rounded-lg shadow-md p-4 overflow-y-auto font-mono text-sm">
+            <h3 className="text-white font-bold mb-2">Console Output:</h3>
+            {consoleOutput.map((line, index) => (
+              <div key={index}>{line}</div>
+            ))}
+            <div ref={consoleEndRef} />
+          </div>
+          <div className="h-1/3 bg-gray-200 rounded-lg shadow-md p-4 overflow-y-auto text-black">
+            <h3 className="font-bold mb-2">Bot Actions:</h3>
+            {botActions.map((action, index) => (
+              <div key={index} className="text-sm">{action}</div>
+            ))}
+            <div ref={botActionsEndRef} />
+          </div>
         </div>
       </div>
-
-      <div className="relative z-[-1] flex place-items-center before:absolute before:h-[300px] before:w-full before:-translate-x-1/2 before:rounded-full before:bg-gradient-radial before:from-white before:to-transparent before:blur-2xl before:content-[''] after:absolute after:-z-20 after:h-[180px] after:w-full after:translate-x-1/3 after:bg-gradient-conic after:from-sky-200 after:via-blue-200 after:blur-2xl after:content-[''] before:dark:bg-gradient-to-br before:dark:from-transparent before:dark:to-blue-700 before:dark:opacity-10 after:dark:from-sky-900 after:dark:via-[#0141ff] after:dark:opacity-40 sm:before:w-[480px] sm:after:w-[240px] before:lg:h-[360px]">
-        <Image
-          className="relative dark:drop-shadow-[0_0_0.3rem_#ffffff70] dark:invert"
-          src="/next.svg"
-          alt="Next.js Logo"
-          width={180}
-          height={37}
-          priority
-        />
-      </div>
-
-      <div className="mb-32 grid text-center lg:mb-0 lg:w-full lg:max-w-5xl lg:grid-cols-4 lg:text-left">
-        <a
-          href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className="mb-3 text-2xl font-semibold">
-            Docs{" "}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className="m-0 max-w-[30ch] text-sm opacity-50">
-            Find in-depth information about Next.js features and API.
-          </p>
-        </a>
-
-        <a
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className="mb-3 text-2xl font-semibold">
-            Learn{" "}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className="m-0 max-w-[30ch] text-sm opacity-50">
-            Learn about Next.js in an interactive course with&nbsp;quizzes!
-          </p>
-        </a>
-
-        <a
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className="mb-3 text-2xl font-semibold">
-            Templates{" "}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className="m-0 max-w-[30ch] text-sm opacity-50">
-            Explore starter templates for Next.js.
-          </p>
-        </a>
-
-        <a
-          href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className="mb-3 text-2xl font-semibold">
-            Deploy{" "}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className="m-0 max-w-[30ch] text-balance text-sm opacity-50">
-            Instantly deploy your Next.js site to a shareable URL with Vercel.
-          </p>
-        </a>
-      </div>
-    </main>
+    </div>
   );
 }
