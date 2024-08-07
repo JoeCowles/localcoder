@@ -99,14 +99,14 @@ export default function Home() {
   };
 
   return (
-    <div className="flex flex-col h-screen bg-gray-100">
-      <header className="bg-blue-600 p-4">
+    <div className="flex flex-col items-center min-h-screen bg-gray-100">
+      <header className="w-full bg-blue-600 p-4 text-center">
         <h1 className="text-2xl font-bold text-white">AI Assistant</h1>
       </header>
 
-      <div className="flex-grow flex p-4 space-x-4 overflow-hidden">
-        <div className="flex-grow flex flex-col space-y-4 max-w-2xl">
-          <div className="flex space-x-2">
+      <main className="flex flex-col items-center w-full max-w-6xl p-4 space-y-4">
+        <div className="w-full flex flex-col items-center space-y-4">
+          <div className="w-full flex space-x-2">
             <input
               type="text"
               value={directory}
@@ -123,30 +123,28 @@ export default function Home() {
             </button>
           </div>
 
-          <div className="flex-grow flex flex-col">
-            <div className="flex-grow bg-white rounded-lg shadow-md p-4 overflow-y-auto max-h-[calc(100vh-250px)]">
-              {messages.map((message, index) => (
-                <div key={index} className={`mb-4 ${message.sender === 'User' ? 'flex justify-end' : 'flex justify-start'}`}>
-                  <div className={`max-w-[70%] p-3 rounded-lg ${
-                    message.sender === 'AI' ? 'bg-blue-100' :
-                    message.sender === 'User' ? 'bg-green-100' :
-                    'bg-gray-100'
-                  }`}>
-                    <div className="flex items-center space-x-2 mb-1">
-                      {message.sender === 'AI' && <FaRobot className="text-blue-500" />}
-                      {message.sender === 'User' && <FaUser className="text-green-500" />}
-                      {message.sender === 'System' && <FaCog className="text-gray-500" />}
-                      <span className="font-bold text-black">{message.sender}:</span>
-                    </div>
-                    <p className="text-black whitespace-pre-wrap">{message.content}</p>
+          <div className="w-full h-[calc(100vh-300px)] flex flex-col bg-white rounded-lg shadow-md p-4 overflow-y-auto">
+            {messages.map((message, index) => (
+              <div key={index} className={`mb-4 ${message.sender === 'User' ? 'flex justify-end' : 'flex justify-start'}`}>
+                <div className={`max-w-[70%] p-3 rounded-lg ${
+                  message.sender === 'AI' ? 'bg-blue-100' :
+                  message.sender === 'User' ? 'bg-green-100' :
+                  'bg-gray-100'
+                }`}>
+                  <div className="flex items-center space-x-2 mb-1">
+                    {message.sender === 'AI' && <FaRobot className="text-blue-500" />}
+                    {message.sender === 'User' && <FaUser className="text-green-500" />}
+                    {message.sender === 'System' && <FaCog className="text-gray-500" />}
+                    <span className="font-bold text-black">{message.sender}:</span>
                   </div>
+                  <p className="text-black whitespace-pre-wrap">{message.content}</p>
                 </div>
-              ))}
-              <div ref={messagesEndRef} />
-            </div>
+              </div>
+            ))}
+            <div ref={messagesEndRef} />
           </div>
 
-          <div className="flex space-x-2">
+          <div className="w-full flex space-x-2">
             <input
               type="text"
               value={input}
@@ -164,15 +162,15 @@ export default function Home() {
           </div>
         </div>
 
-        <div className="w-1/3 flex flex-col space-y-4 overflow-hidden">
-          <div className="flex-grow bg-black text-green-400 rounded-lg shadow-md p-4 overflow-y-auto font-mono text-sm">
+        <div className="w-full flex space-x-4">
+          <div className="flex-1 bg-black text-green-400 rounded-lg shadow-md p-4 h-48 overflow-y-auto font-mono text-sm">
             <h3 className="text-white font-bold mb-2">Console Output:</h3>
             {consoleOutput.map((line, index) => (
               <div key={index}>{line}</div>
             ))}
             <div ref={consoleEndRef} />
           </div>
-          <div className="h-1/3 bg-gray-200 rounded-lg shadow-md p-4 overflow-y-auto text-black">
+          <div className="flex-1 bg-gray-200 rounded-lg shadow-md p-4 h-48 overflow-y-auto">
             <h3 className="font-bold mb-2">Bot Actions:</h3>
             {botActions.map((action, index) => (
               <div key={index} className="text-sm">{action}</div>
@@ -180,7 +178,7 @@ export default function Home() {
             <div ref={botActionsEndRef} />
           </div>
         </div>
-      </div>
+      </main>
     </div>
   );
 }
